@@ -11,6 +11,8 @@ LIBS 光谱特征分三层:
 
 import numpy as np
 from scipy.stats import skew, kurtosis, entropy as scipy_entropy
+from scipy import sparse
+from scipy.sparse.linalg import spsolve
 from sklearn.decomposition import PCA
 from sklearn.preprocessing import StandardScaler
 
@@ -27,6 +29,27 @@ def line_integral(wl, inten, center_nm, halfwin_nm):
     mask = (wl >= center_nm - halfwin_nm) & (wl <= center_nm + halfwin_nm)
     return float(inten[mask].sum()) if mask.sum() > 0 else 0.0
 
+# ── Asymmetric Least Squares Smoothing ───────────────────────────────────────
+
+def baseline_als(y, lam=1e6, p=0.005, niter=10):
+    """
+    Asymmetric Least Squares baseline correction.
+    y: raw spectrum array
+    lam: smoothness parameter (try 1e5 to 1e8)
+    p: asymmetry parameter (try 0.001 to 0.01)
+    """
+    L = len(y)
+    D = sparse.csc_matrix(np.diff(np.eye(L), 2))
+    w = np.ones(L)
+    
+    for i in range(niter):
+        W = sparse.spdiags(w, 0, L, L)
+        Z = W + lam * D.dot(D.transpose())
+        z = spsolve(Z, w*y)
+        w = p * (y > z) + (1 - p) * (y < z)
+        
+    return z
+
 
 # ── 单条光谱特征 ──────────────────────────────────────────────────────────────
 
@@ -41,6 +64,8 @@ def spectrum_features(wl, inten):
         lrel   (11,)  : 谱线相对积分
         rats   (4,)   : 物理比值
     """
+    #baseline = baseline_als(inten, lam=1e6, p=0.005)    # Baseline correction
+    #inten = inten - baseline
     total      = inten.sum() + 1e-8
     inten_norm = inten / total          # 归一化强度（消除激光能量波动）
     deriv      = np.diff(inten_norm)    # 一阶差分

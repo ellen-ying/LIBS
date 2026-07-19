@@ -106,3 +106,12 @@ SMALL_BATCH_THRESHOLD = 10
 - [ ] 批次内光谱异常检测（去除污染光谱）
 - [ ] Boltzmann 图估算等离子体温度（更深物理特征）
 - [ ] 多版本集成（Ensemble V6 + V7 预测）
+
+---
+
+## Baseline performance for documentation
+
+| Model | 赵固一矿豫焦末煤 | 赵固二矿中煤矿 | 中马矿中煤矿 | 九里山矿中煤矿 | 煤场混煤 | Global CV-RMSE |
+|---|---|---|---|---|---|---|
+| Baseline | 159.50 ± 68.94 | raw=82.45  shrunk=121.81  w=1.00 | raw=223.69  shrunk=255.83  w=0.65 | 148.67 ± 57.60 | 157.62 ± 41.31 | 168.69 |
+| Spectra data with baseline correction | 182.09 ± 100.87 | raw=96.24  shrunk=123.32  w=1.00 | raw=245.83  shrunk=312.03  w=0.80 | 130.10 ± 38.25 | 186.46 ± 45.91 | 186.80 | 
