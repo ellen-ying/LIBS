@@ -70,7 +70,7 @@ def find_best_shrinkage(oof_preds, oof_true, coal_mean):
 
 # ── 单煤种训练 ────────────────────────────────────────────────────────────────
 
-def train_coal_model(coal_type, train_data):
+def train_coal_model(coal_type, train_data, als_param=(1e6, 0.005), param_search=False):
     """
     训练某煤种的两阶段模型，返回预测所需的全部参数。
 
@@ -89,12 +89,13 @@ def train_coal_model(coal_type, train_data):
     n_batches  = train_data['n_batches']
     coal_mean  = float(y.mean())
 
-    print(f"\n  [{coal_type}]  {n_batches}批次  {len(y)}条光谱  "
-          f"Q={y.min():.0f}~{y.max():.0f}")
+    if not param_search:
+        print(f"\n  [{coal_type}]  {n_batches}批次  {len(y)}条光谱  "
+            f"Q={y.min():.0f}~{y.max():.0f}")
 
     # 光谱 → 特征矩阵（训练集 fit）
     X_spec, scaler_spec, pca, scaler_hand = build_feature_matrix(
-        train_data, n_batches, fit=True)
+        train_data, n_batches, fit=True, als_param=als_param)
 
     splits = get_cv_splits(groups, n_batches)
 
@@ -153,16 +154,19 @@ def train_coal_model(coal_type, train_data):
         best_w, cv_rmse_shrunk = find_best_shrinkage(
             oof_batch_preds, oof_batch_true, coal_mean)
         cv_rmse = cv_rmse_shrunk
-        print(f"    Stage2 CV-RMSE: raw={cv_rmse_raw:.2f}  "
-              f"shrunk={cv_rmse_shrunk:.2f}  w={best_w:.2f}")
+        if not param_search:
+            print(f"    Stage2 CV-RMSE: raw={cv_rmse_raw:.2f}  "
+                f"shrunk={cv_rmse_shrunk:.2f}  w={best_w:.2f}")
     else:
         cv_rmse = cv_rmse_raw
-        print(f"    Stage2 CV-RMSE: {cv_rmse:.2f} ± {np.std(batch_rmses):.2f}")
+        if not param_search:
+            print(f"    Stage2 CV-RMSE: {cv_rmse:.2f} ± {np.std(batch_rmses):.2f}")
 
     # 全量数据重新拟合最终模型
     final_model = RidgeCV(alphas=ALPHAS)
     final_model.fit(X_s2, y)
-    print(f"    最优正则化 alpha: {final_model.alpha_:.1f}")
+    if not param_search:
+        print(f"    最优正则化 alpha: {final_model.alpha_:.1f}")
 
     return {
         'spec_scalers': (scaler_spec, pca, scaler_hand),
@@ -177,7 +181,7 @@ def train_coal_model(coal_type, train_data):
 
 # ── 单煤种推理 ────────────────────────────────────────────────────────────────
 
-def predict_coal(coal_type, test_data, model_dict):
+def predict_coal(coal_type, test_data, model_dict, als_param=(1e6, 0.005)):
     """
     对某煤种的测试批次做推理，返回 {批次名: 预测发热量} 字典。
     推理流程与训练流程一一对应:
@@ -193,7 +197,7 @@ def predict_coal(coal_type, test_data, model_dict):
     X_spec = build_feature_matrix(
         test_data, n_batches=None,
         scaler_spec=scaler_spec, pca=pca, scaler_hand=scaler_hand,
-        fit=False)
+        fit=False, als_param=als_param)
 
     pred_aux = np.zeros((len(test_data['spectra']), len(AUX_COLS)), dtype=np.float32)
     for col_idx, col_name in enumerate(AUX_COLS):

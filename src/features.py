@@ -33,27 +33,44 @@ def line_integral(wl, inten, center_nm, halfwin_nm):
 
 def baseline_als(y, lam=1e6, p=0.005, niter=10):
     """
-    Asymmetric Least Squares baseline correction.
-    y: raw spectrum array
-    lam: smoothness parameter (try 1e5 to 1e8)
-    p: asymmetry parameter (try 0.001 to 0.01)
+    Memory-optimized Asymmetric Least Squares baseline correction.
+    
+    Parameters:
+    -----------
+    y: 1D numpy array
+        Raw spectrum array
+    lam: float
+        Smoothness parameter (try 1e5 to 1e8)
+    p: float
+        Asymmetry parameter (try 0.001 to 0.01)
+    niter: int
+        Number of iterations for the solver
+        
+    Returns:
+    --------
+    z: 1D numpy array
+        Fitted baseline
     """
     L = len(y)
-    D = sparse.csc_matrix(np.diff(np.eye(L), 2))
+    
+    # Build the 2nd-order difference matrix natively in sparse format
+    # Diagonals: [1, -2, 1], Offsets: [0, 1, 2]. Shape: (L-2, L)
+    D = sparse.diags([1, -2, 1], [0, 1, 2], shape=(L-2, L))
+    H = lam * D.T.dot(D)
     w = np.ones(L)
     
     for i in range(niter):
-        W = sparse.spdiags(w, 0, L, L)
-        Z = W + lam * D.dot(D.transpose())
-        z = spsolve(Z, w*y)
+        W = sparse.diags(w, 0, shape=(L, L))
+        Z = (W + H).tocsc()
+        z = spsolve(Z, w * y)
+        # Update weights asymmetrically
         w = p * (y > z) + (1 - p) * (y < z)
         
     return z
 
-
 # ── 单条光谱特征 ──────────────────────────────────────────────────────────────
 
-def spectrum_features(wl, inten):
+def spectrum_features(wl, inten, baseline_correction=True, als_param=(1e6, 0.005)):
     """
     从一条光谱提取三层特征。
 
@@ -64,10 +81,12 @@ def spectrum_features(wl, inten):
         lrel   (11,)  : 谱线相对积分
         rats   (4,)   : 物理比值
     """
-    #baseline = baseline_als(inten, lam=1e6, p=0.005)    # Baseline correction
-    #inten = inten - baseline
+    if baseline_correction:
+        baseline = baseline_als(inten, lam=als_param[0], p=als_param[1])    # Baseline correction
+        inten = inten - baseline
     total      = inten.sum() + 1e-8
-    inten_norm = inten / total          # 归一化强度（消除激光能量波动）
+    #inten_norm = inten / total          # 归一化强度（消除激光能量波动）
+    inten_norm = (inten - inten.mean()) / (inten.std() + 1e-8)  # SNV normalization
     deriv      = np.diff(inten_norm)    # 一阶差分
     deriv2     = np.diff(inten_norm, 2) # 二阶差分
 
@@ -108,7 +127,7 @@ def spectrum_features(wl, inten):
 
 # ── 批量特征计算 ──────────────────────────────────────────────────────────────
 
-def compute_features(data):
+def compute_features(data, baseline_correction=True, als_param=(1e6, 0.005)):
     """
     对 data_dict 中所有光谱计算特征，原地填充 stats/labs/lrel/rats 字段。
     同时返回归一化光谱矩阵（用于 PCA）。
@@ -117,7 +136,9 @@ def compute_features(data):
     inorms, stats_list, labs_list, lrel_list, rats_list = [], [], [], [], []
 
     for wl, inten in raw_spectra:
-        inorm, stats, labs, lrel, rats = spectrum_features(wl, inten)
+        inorm, stats, labs, lrel, rats = spectrum_features(wl, inten, 
+                                                           baseline_correction=baseline_correction,
+                                                           als_param=als_param)
         inorms.append(inorm)
         stats_list.append(stats)
         labs_list.append(labs)
@@ -139,7 +160,8 @@ def compute_features(data):
 # ── PCA + 拼接 ────────────────────────────────────────────────────────────────
 
 def build_feature_matrix(data, n_batches,
-                         scaler_spec=None, pca=None, scaler_hand=None, fit=True):
+                         scaler_spec=None, pca=None, scaler_hand=None, fit=True,
+                         baseline_correction=True, als_param=(1e6, 0.005)):
     """
     构建最终特征矩阵: [PCA(归一化光谱)] + [手工特征]。
 
@@ -148,8 +170,11 @@ def build_feature_matrix(data, n_batches,
 
     参数:
         n_batches: 批次数，用于限制 PCA 维度（不能超过样本数-1）
+        als_param: ALS 基线校正参数
     """
-    inorm_mat = compute_features(data)
+    inorm_mat = compute_features(data, 
+                                 baseline_correction=baseline_correction, 
+                                 als_param=als_param)
 
     if fit:
         scaler_spec = StandardScaler()
