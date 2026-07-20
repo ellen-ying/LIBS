@@ -120,6 +120,7 @@ SMALL_BATCH_THRESHOLD = 10
           - Combustible Density: $(100 - M - A)$ — This represents the actual percentage of the coal that can burn.
           - Ash-to-Moisture Ratio: $A / (M + 1e-8)$
           - Hydrogen-to-Ash Displacement: $H \times (100 - A)$
+     - Added spectral data filter: CV-RMSE remained roughly the same while the test RMSE increased for both this modification alone and this plus the interaction term
 
 ---
 
@@ -130,3 +131,5 @@ SMALL_BATCH_THRESHOLD = 10
 | Baseline | 159.50 ± 68.94 | raw=82.45  shrunk=121.81  w=1.00 | raw=223.69  shrunk=255.83  w=0.65 | 148.67 ± 57.60 | 157.62 ± 41.31 | 168.69 | 278.5046 |
 | Spectra data with baseline correction, best parameter | 200.1408 | 86.9409 | 200.4274 | 159.3772 | 198.3728 | 169.05 | 285.21263 |
 ｜ Interaction terms after Step 1 | 164.98 ± 46.66 | raw=97.87  shrunk=141.04  w=0.95 | raw=212.28  shrunk=248.84  w=0.75 | 145.51 ± 47.80 | 159.28 ± 42.39 | 171.93 | 270.35 | 
+| Spectral data filter | 115.73 ± 77.43 | raw=99.95  shrunk=146.62  w=0.60 | raw=175.06  shrunk=233.92  w=1.00 | 141.33 ± 62.26 | 192.88 ± 48.22 | 166.10 | 291.30438 |
+| Interaction + Anomaly| 135.74 ± 91.96 | raw=112.37  shrunk=153.17  w=0.10 | raw=178.02  shrunk=223.81  w=1.00 | 151.62 ± 63.46 | 197.62 ± 57.86 | 172.39 | 298.79139 | 

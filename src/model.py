@@ -69,7 +69,7 @@ def find_best_shrinkage(oof_preds, oof_true, coal_mean):
 
 # ── Combine features ────────────────────────────────────────────────────────────────
 
-def combine_features(X, predicted_aux, interaction_terms = True):
+def combine_features(X, predicted_aux, interaction_terms = False):
     """
     Combine the original feature matrix with the Step 1 predictions, with the option
     of including interaction terms.
@@ -107,19 +107,22 @@ def train_coal_model(coal_type, train_data, als_param=(1e6, 0.005), param_search
         shrink_w      : 收缩权重 w（1.0 = 不收缩）
         cv_rmse       : 交叉验证 RMSE
     """
+    
+    n_batches  = train_data['n_batches']
+
+    # 光谱 → 特征矩阵（训练集 fit）
+    # This function filters out data with anomolous spectral data
+    X_spec, scaler_spec, pca, scaler_hand = build_feature_matrix(
+        train_data, n_batches, fit=True, als_param=als_param)
+
     y          = train_data['targets']
     aux        = train_data['aux']
     groups     = train_data['groups']
-    n_batches  = train_data['n_batches']
     coal_mean  = float(y.mean())
 
     if not param_search:
         print(f"\n  [{coal_type}]  {n_batches}批次  {len(y)}条光谱  "
             f"Q={y.min():.0f}~{y.max():.0f}")
-
-    # 光谱 → 特征矩阵（训练集 fit）
-    X_spec, scaler_spec, pca, scaler_hand = build_feature_matrix(
-        train_data, n_batches, fit=True, als_param=als_param)
 
     splits = get_cv_splits(groups, n_batches)
 

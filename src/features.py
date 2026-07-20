@@ -130,9 +130,68 @@ def spectrum_features(wl, inten, baseline_correction=False, als_param=(1e6, 0.00
     return inten_norm, stats, labs, lrel, rats
 
 
+# ── Anomaly detection ────────────────────────────────────────────────────────────────
+
+def detect_spectral_anomalies(inorm_mat, batch_ids, similarity_threshold=0.92, sigma_cutoff=2.5):
+    """
+    Computes Cosine Similarity of each shot relative to its batch mean.
+    
+    Parameters:
+    -----------
+    inorm_mat : np.ndarray (N_shots, N_pixels)
+        Normalized spectral matrix from compute_features()
+    batch_ids : np.ndarray or list (N_shots,)
+        Batch/group IDs corresponding to each shot
+    similarity_threshold : float
+        Absolute minimum cosine similarity cutoff (e.g., 0.90 to 0.95)
+    sigma_cutoff : float
+        Z-score threshold for within-batch outlier rejection
+        
+    Returns:
+    --------
+    valid_mask : np.ndarray (N_shots,) of bool
+        True for clean shots, False for anomalies
+    similarities : np.ndarray (N_shots,) of float
+        Cosine similarity scores for each shot
+    """
+    # L2-normalize vectors for fast dot-product cosine similarity
+    norms = np.linalg.norm(inorm_mat, axis=1, keepdims=True) + 1e-8
+    unit_mat = inorm_mat / norms
+    
+    similarities = np.zeros(len(inorm_mat), dtype=np.float32)
+    valid_mask = np.ones(len(inorm_mat), dtype=bool)
+    
+    # Compute similarity relative to EACH batch's unique mean
+    unique_batches = np.unique(batch_ids)
+    for b_id in unique_batches:
+        b_mask = (batch_ids == b_id)
+        b_shots = unit_mat[b_mask]
+        
+        # Calculate mean spectrum vector for this batch
+        b_mean = b_shots.mean(axis=0, keepdims=True)
+        b_mean /= (np.linalg.norm(b_mean) + 1e-8)
+        
+        # Cosine similarity = dot product of unit vectors
+        b_sims = (b_shots * b_mean).sum(axis=1)
+        similarities[b_mask] = b_sims
+        
+        # Method A: Absolute threshold
+        mask_abs = b_sims >= similarity_threshold
+        
+        # Method B: Relative Z-score threshold within the batch
+        if len(b_sims) > 3:
+            mean_sim, std_sim = b_sims.mean(), b_sims.std() + 1e-8
+            mask_z = (b_sims >= mean_sim - sigma_cutoff * std_sim)
+        else:
+            mask_z = True
+            
+        valid_mask[b_mask] = mask_abs & mask_z
+        
+    return valid_mask, similarities
+
 # ── 批量特征计算 ──────────────────────────────────────────────────────────────
 
-def compute_features(data, baseline_correction=False, als_param=(1e6, 0.005)):
+def compute_features(data, fit = True, baseline_correction=False, als_param=(1e6, 0.005)):
     """
     对 data_dict 中所有光谱计算特征，原地填充 stats/labs/lrel/rats 字段。
     同时返回归一化光谱矩阵（用于 PCA）。
@@ -154,12 +213,27 @@ def compute_features(data, baseline_correction=False, als_param=(1e6, 0.005)):
     min_len = min(len(s) for s in inorms)
     inorm_mat = np.array([s[:min_len] for s in inorms], dtype=np.float32)
 
-    data['stats'] = np.array(stats_list)
-    data['labs']  = np.array(labs_list)
-    data['lrel']  = np.array(lrel_list)
-    data['rats']  = np.array(rats_list)
+    if fit:
+        # Filter out invalid spectral shots
+        valid_mask, _ = detect_spectral_anomalies(inorm_mat, data['groups'])
+        inorm_mat = inorm_mat[valid_mask]
+
+        # Match the rest of the data with the spectral data
+        data['stats'] = np.array(stats_list)[valid_mask]
+        data['labs']  = np.array(labs_list)[valid_mask]
+        data['lrel']  = np.array(lrel_list)[valid_mask]
+        data['rats']  = np.array(rats_list)[valid_mask]
+        data["targets"] = data["targets"][valid_mask]
+        data["aux"] = data["aux"][valid_mask]
+        data["groups"] = data["groups"][valid_mask]
+    else:
+        data['stats'] = np.array(stats_list)
+        data['labs']  = np.array(labs_list)
+        data['lrel']  = np.array(lrel_list)
+        data['rats']  = np.array(rats_list)
 
     return inorm_mat
+
 
 
 # ── PCA + 拼接 ────────────────────────────────────────────────────────────────
@@ -177,7 +251,7 @@ def build_feature_matrix(data, n_batches,
         n_batches: 批次数，用于限制 PCA 维度（不能超过样本数-1）
         als_param: ALS 基线校正参数
     """
-    inorm_mat = compute_features(data, 
+    inorm_mat = compute_features(data, fit=fit,
                                  baseline_correction=baseline_correction, 
                                  als_param=als_param)
 
