@@ -109,9 +109,24 @@ SMALL_BATCH_THRESHOLD = 10
 
 ---
 
-## Baseline performance for documentation
+## Test Documentatiokn
 
-| Model | 赵固一矿豫焦末煤 | 赵固二矿中煤矿 | 中马矿中煤矿 | 九里山矿中煤矿 | 煤场混煤 | Global CV-RMSE |
+- Jul. 19th
+     - PCA Ablation Test: CV-RMSE increased by 50
+     - Spectra data with baseline correction, searched for the best parameters, see below
+- Jul. 20th
+     - Added additional ratios of chemical componenets: CV-RMSE increased by 10
+     - Added interaction terms of the auxiliary variables: CV-RMSE remained roughly the same while the test RMSE dropped by 8
+          - Combustible Density: $(100 - M - A)$ — This represents the actual percentage of the coal that can burn.
+          - Ash-to-Moisture Ratio: $A / (M + 1e-8)$
+          - Hydrogen-to-Ash Displacement: $H \times (100 - A)$
+
+---
+
+## Performance for Documentation
+
+| Model | 赵固一矿豫焦末煤 | 赵固二矿中煤矿 | 中马矿中煤矿 | 九里山矿中煤矿 | 煤场混煤 | Global CV-RMSE | Test RMSE |
 |---|---|---|---|---|---|---|
-| Baseline | 159.50 ± 68.94 | raw=82.45  shrunk=121.81  w=1.00 | raw=223.69  shrunk=255.83  w=0.65 | 148.67 ± 57.60 | 157.62 ± 41.31 | 168.69 |
-| Spectra data with baseline correction | 182.09 ± 100.87 | raw=96.24  shrunk=123.32  w=1.00 | raw=245.83  shrunk=312.03  w=0.80 | 130.10 ± 38.25 | 186.46 ± 45.91 | 186.80 | 
+| Baseline | 159.50 ± 68.94 | raw=82.45  shrunk=121.81  w=1.00 | raw=223.69  shrunk=255.83  w=0.65 | 148.67 ± 57.60 | 157.62 ± 41.31 | 168.69 | 278.5046 |
+| Spectra data with baseline correction, best parameter | 200.1408 | 86.9409 | 200.4274 | 159.3772 | 198.3728 | 169.05 | 285.21263 |
+｜ Interaction terms after Step 1 | 164.98 ± 46.66 | raw=97.87  shrunk=141.04  w=0.95 | raw=212.28  shrunk=248.84  w=0.75 | 145.51 ± 47.80 | 159.28 ± 42.39 | 171.93 | 270.35 | 

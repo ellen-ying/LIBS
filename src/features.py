@@ -70,7 +70,7 @@ def baseline_als(y, lam=1e6, p=0.005, niter=10):
 
 # ── 单条光谱特征 ──────────────────────────────────────────────────────────────
 
-def spectrum_features(wl, inten, baseline_correction=True, als_param=(1e6, 0.005)):
+def spectrum_features(wl, inten, baseline_correction=False, als_param=(1e6, 0.005)):
     """
     从一条光谱提取三层特征。
 
@@ -85,8 +85,8 @@ def spectrum_features(wl, inten, baseline_correction=True, als_param=(1e6, 0.005
         baseline = baseline_als(inten, lam=als_param[0], p=als_param[1])    # Baseline correction
         inten = inten - baseline
     total      = inten.sum() + 1e-8
-    #inten_norm = inten / total          # 归一化强度（消除激光能量波动）
-    inten_norm = (inten - inten.mean()) / (inten.std() + 1e-8)  # SNV normalization
+    inten_norm = inten / total          # 归一化强度（消除激光能量波动）
+    #inten_norm = (inten - inten.mean()) / (inten.std() + 1e-8)  # SNV normalization
     deriv      = np.diff(inten_norm)    # 一阶差分
     deriv2     = np.diff(inten_norm, 2) # 二阶差分
 
@@ -114,12 +114,17 @@ def spectrum_features(wl, inten, baseline_correction=True, als_param=(1e6, 0.005
     # 物理比值: 可燃元素 vs 灰分元素
     # 索引: C=0, H=1, O=2, N=3 | Ca=4, Ca2=5, Mg=6, Al=7, Si=8, Fe=9, Na=10
     comb_sum = labs[[0, 1, 2, 3]].sum()                        # 可燃元素
-    ash_sum  = labs[[4, 5, 6, 7, 8, 9]].sum() + 1e-8          # 灰分元素
+    ash_sum  = labs[[4, 5, 6, 7, 8, 9, 10]].sum() + 1e-8       # 灰分元素
+    #acid_sum = labs[[7, 8]].sum() + 1e-8         # Acidic elements: Si, Al
+    #base_sum = labs[[4, 5, 6, 9, 10]].sum()     # Basic elements: Ca, Ca2, Mg, Fe, Na
     rats = np.array([
         comb_sum / ash_sum,                 # 可燃/灰分 (发热量代理)
         labs[1] / ash_sum,                  # H/灰分
         labs[0] / ash_sum,                  # C/灰分
         labs[1] / (labs[0] + 1e-8),        # H/C
+        #labs[2] / (labs[0] + 1e-8),        # O/C Ratio
+        #base_sum / acid_sum,               # Basic to Acid Ratio
+        #(labs[1] + labs[2]) / (labs[0] + 1e-8)  # Volatility Proxy (H + O) / C
     ], dtype=np.float32)
 
     return inten_norm, stats, labs, lrel, rats
@@ -127,7 +132,7 @@ def spectrum_features(wl, inten, baseline_correction=True, als_param=(1e6, 0.005
 
 # ── 批量特征计算 ──────────────────────────────────────────────────────────────
 
-def compute_features(data, baseline_correction=True, als_param=(1e6, 0.005)):
+def compute_features(data, baseline_correction=False, als_param=(1e6, 0.005)):
     """
     对 data_dict 中所有光谱计算特征，原地填充 stats/labs/lrel/rats 字段。
     同时返回归一化光谱矩阵（用于 PCA）。
@@ -161,7 +166,7 @@ def compute_features(data, baseline_correction=True, als_param=(1e6, 0.005)):
 
 def build_feature_matrix(data, n_batches,
                          scaler_spec=None, pca=None, scaler_hand=None, fit=True,
-                         baseline_correction=True, als_param=(1e6, 0.005)):
+                         baseline_correction=False, als_param=(1e6, 0.005)):
     """
     构建最终特征矩阵: [PCA(归一化光谱)] + [手工特征]。
 

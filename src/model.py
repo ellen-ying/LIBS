@@ -67,6 +67,30 @@ def find_best_shrinkage(oof_preds, oof_true, coal_mean):
             best_rmse, best_w = rmse, w
     return best_w, best_rmse
 
+# ── Combine features ────────────────────────────────────────────────────────────────
+
+def combine_features(X, predicted_aux, interaction_terms = True):
+    """
+    Combine the original feature matrix with the Step 1 predictions, with the option
+    of including interaction terms.
+
+    Input:
+        X: The feature matrix
+        predicted_aux_oof: The Step 1 prediciton
+
+    Returns:
+        The combined feature for Step 2
+
+    """
+    if interaction_terms:
+        # Additional interaction terms to be considered
+        # Moisture = 0, Ash = 1, H = 2, S = 3
+        comb_density = 100 - predicted_aux[:, 0] - predicted_aux[:, 1] # Combustion density proxy
+        ash_to_moisture = predicted_aux[:, 1] / (predicted_aux[:, 0] + 1e-8) # Ash to Moisture ratio
+        hydro_to_ash = predicted_aux[:, 2] / (100 - predicted_aux[:, 1]) # H to Ash displacement
+        return np.column_stack([X, predicted_aux, comb_density, ash_to_moisture, hydro_to_ash])
+    
+    return np.hstack([X, predicted_aux])
 
 # ── 单煤种训练 ────────────────────────────────────────────────────────────────
 
@@ -123,7 +147,8 @@ def train_coal_model(coal_type, train_data, als_param=(1e6, 0.005), param_search
         aux_models[col_name] = m
 
     # ── Stage 2: [光谱特征 + 预测辅助指标] → 发热量 ──────────────────────
-    X_s2      = np.hstack([X_spec, predicted_aux_oof])
+    
+    X_s2      = combine_features(X_spec, predicted_aux_oof)
     scaler_s2 = StandardScaler()
     X_s2      = scaler_s2.fit_transform(np.nan_to_num(X_s2))
 
@@ -205,7 +230,7 @@ def predict_coal(coal_type, test_data, model_dict, als_param=(1e6, 0.005)):
         if m is not None:
             pred_aux[:, col_idx] = m.predict(X_spec)
 
-    X_s2       = scaler_s2.transform(np.nan_to_num(np.hstack([X_spec, pred_aux])))
+    X_s2       = scaler_s2.transform(np.nan_to_num(combine_features(X_spec, pred_aux)))
     preds      = final_model.predict(X_s2)
     batch_pred = aggregate_to_batch(preds, test_data['names'])
 
