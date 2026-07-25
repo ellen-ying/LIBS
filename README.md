@@ -132,7 +132,7 @@ SMALL_BATCH_THRESHOLD = 10
 ## Performance for Documentation
 
 | Model | 赵固一矿豫焦末煤 | 赵固二矿中煤矿 | 中马矿中煤矿 | 九里山矿中煤矿 | 煤场混煤 | Global CV-RMSE | Test RMSE |
-|---|---|---|---|---|---|---|
+|---|---|---|---|---|---|---|---|
 | Baseline | 159.50 ± 68.94 | raw=82.45  shrunk=121.81  w=1.00 | raw=223.69  shrunk=255.83  w=0.65 | 148.67 ± 57.60 | 157.62 ± 41.31 | 168.69 | 278.5046 |
 | Spectra data with baseline correction, best parameter | 200.1408 | 86.9409 | 200.4274 | 159.3772 | 198.3728 | 169.05 | 285.21263 |
 | Interaction terms after Step 1 | 164.98 ± 46.66 | raw=97.87  shrunk=141.04  w=0.95 | raw=212.28  shrunk=248.84  w=0.75 | 145.51 ± 47.80 | 159.28 ± 42.39 | 171.93 | 270.35 | 
@@ -140,4 +140,4 @@ SMALL_BATCH_THRESHOLD = 10
 | Interaction + Anomaly Filter | 135.74 ± 91.96 | raw=112.37  shrunk=153.17  w=0.10 | raw=178.02  shrunk=223.81  w=1.00 | 151.62 ± 63.46 | 197.62 ± 57.86 | 172.39 | 298.79139 | 
 | Global parameter search in Step 1 Ridge | 183.31 ± 88.74 | raw=78.19  shrunk=98.19  w=1.00 | raw=122.45  shrunk=145.62  w=1.00 | 149.18 ± 52.17 | 157.83 ± 39.64 | 146.83 | 270.70046 |
 | Interaction + Global param search in Step 1 | 182.02 ± 80.23 | raw=86.18  shrunk=115.25  w=1.00 | raw=165.39  shrunk=170.33  w=0.80 | 156.34 ± 44.74 | 159.09 ± 41.07 | 156.61 | 274.35335 |
-| Dropped Sulfur |  142.14 ± 52.85 | raw=63.49  shrunk=99.60  w=1.00 | raw=181.07  shrunk=213.49  w=0.70 | 139.18 ± 52.00 | 189.38 ± 30.61 | 156.76 | 281.59082 |
+| Dropped Sulfur | 142.14 ± 52.85 | raw=63.49  shrunk=99.60  w=1.00 | raw=181.07  shrunk=213.49  w=0.70 | 139.18 ± 52.00 | 189.38 ± 30.61 | 156.76 | 281.59082 |
