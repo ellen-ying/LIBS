@@ -102,8 +102,8 @@ SMALL_BATCH_THRESHOLD = 10
 
 ## 进一步优化方向
 
-- [ ] LightGBM 替换 Stage2 Ridge（捕获非线性）
-- [ ] 批次内光谱异常检测（去除污染光谱）
+- [x] LightGBM 替换 Stage2 Ridge（捕获非线性）
+- [x] 批次内光谱异常检测（去除污染光谱）
 - [ ] Boltzmann 图估算等离子体温度（更深物理特征）
 - [ ] 多版本集成（Ensemble V6 + V7 预测）
 
@@ -121,6 +121,11 @@ SMALL_BATCH_THRESHOLD = 10
           - Ash-to-Moisture Ratio: $A / (M + 1e-8)$
           - Hydrogen-to-Ash Displacement: $H \times (100 - A)$
      - Added spectral data filter: CV-RMSE remained roughly the same while the test RMSE increased for both this modification alone and this plus the interaction term
+- Jul. 21st
+     - Tried HGB in Step 1, with global parameter search and foldwise prediction for Step 2 training: Loss significantly increases
+     - The global parameter search inspires a modification for the Step 1 Ridge regression: About 20 points drop in CV-RMSE, but the test RMSE does not drop significantly. This indicates a potential information leakage problem and the model is therfore discarded.
+- Jul. 25th
+     - Dropped Sulfur from Stage 1 prediction due to its consistent high error rate across col types: CV-RMSE dropped while test error is high
 
 ---
 
@@ -132,4 +137,7 @@ SMALL_BATCH_THRESHOLD = 10
 | Spectra data with baseline correction, best parameter | 200.1408 | 86.9409 | 200.4274 | 159.3772 | 198.3728 | 169.05 | 285.21263 |
 ｜ Interaction terms after Step 1 | 164.98 ± 46.66 | raw=97.87  shrunk=141.04  w=0.95 | raw=212.28  shrunk=248.84  w=0.75 | 145.51 ± 47.80 | 159.28 ± 42.39 | 171.93 | 270.35 | 
 | Spectral data filter | 115.73 ± 77.43 | raw=99.95  shrunk=146.62  w=0.60 | raw=175.06  shrunk=233.92  w=1.00 | 141.33 ± 62.26 | 192.88 ± 48.22 | 166.10 | 291.30438 |
-| Interaction + Anomaly| 135.74 ± 91.96 | raw=112.37  shrunk=153.17  w=0.10 | raw=178.02  shrunk=223.81  w=1.00 | 151.62 ± 63.46 | 197.62 ± 57.86 | 172.39 | 298.79139 | 
+| Interaction + Anomaly Filter | 135.74 ± 91.96 | raw=112.37  shrunk=153.17  w=0.10 | raw=178.02  shrunk=223.81  w=1.00 | 151.62 ± 63.46 | 197.62 ± 57.86 | 172.39 | 298.79139 | 
+| Global parameter search in Step 1 Ridge | 183.31 ± 88.74 | raw=78.19  shrunk=98.19  w=1.00 | raw=122.45  shrunk=145.62  w=1.00 | 149.18 ± 52.17 | 157.83 ± 39.64 | 146.83 | 270.70046 |
+| Interaction + Global param search in Step 1 | 182.02 ± 80.23 | raw=86.18  shrunk=115.25  w=1.00 | raw=165.39  shrunk=170.33  w=0.80 | 156.34 ± 44.74 | 159.09 ± 41.07 | 156.61 | 274.35335 |
+| Dropped Sulfur |  142.14 ± 52.85 | raw=63.49  shrunk=99.60  w=1.00 | raw=181.07  shrunk=213.49  w=0.70 | 139.18 ± 52.00 | 189.38 ± 30.61 | 156.76 | 281.59082 |

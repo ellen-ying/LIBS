@@ -16,8 +16,9 @@ Stage 2 — 光谱特征 + Stage1预测辅助指标 → 发热量
 
 import numpy as np
 from sklearn.linear_model import RidgeCV
-from sklearn.preprocessing import StandardScaler
-from sklearn.model_selection import LeaveOneGroupOut, GroupKFold
+from sklearn.preprocessing import StandardScaler, SplineTransformer
+from sklearn.model_selection import LeaveOneGroupOut, GroupKFold, GridSearchCV
+from sklearn.pipeline import Pipeline
 
 from config import ALPHAS, AUX_COLS, SMALL_BATCH_THRESHOLD
 from src.features import build_feature_matrix
@@ -69,7 +70,7 @@ def find_best_shrinkage(oof_preds, oof_true, coal_mean):
 
 # ── Combine features ────────────────────────────────────────────────────────────────
 
-def combine_features(X, predicted_aux, interaction_terms = False):
+def combine_features(X, predicted_aux, interaction_terms = True):
     """
     Combine the original feature matrix with the Step 1 predictions, with the option
     of including interaction terms.
@@ -111,7 +112,6 @@ def train_coal_model(coal_type, train_data, als_param=(1e6, 0.005), param_search
     n_batches  = train_data['n_batches']
 
     # 光谱 → 特征矩阵（训练集 fit）
-    # This function filters out data with anomolous spectral data
     X_spec, scaler_spec, pca, scaler_hand = build_feature_matrix(
         train_data, n_batches, fit=True, als_param=als_param)
 
@@ -128,26 +128,38 @@ def train_coal_model(coal_type, train_data, als_param=(1e6, 0.005), param_search
 
     # ── Stage 1: 光谱 → 辅助指标 (OOF) ────────────────────────────────────
     aux_models        = {}
-    predicted_aux_oof = np.zeros_like(aux, dtype=np.float32)
-
+    predicted_aux_oof = np.zeros((aux.shape[0],3), dtype=np.float32)
+    idx = 0
     for col_idx, col_name in enumerate(AUX_COLS):
+        # Skip Sulfur due to prediction inaccuracy and 
+        # relative unimportance in calorific value prediction
+        if col_idx in [3]:
+            continue
         y_aux = aux[:, col_idx]
 
         # 辅助指标有缺失时退化为用均值填充
         if np.isnan(y_aux).any():
-            predicted_aux_oof[:, col_idx] = float(np.nanmean(y_aux))
+            predicted_aux_oof[:, idx] = float(np.nanmean(y_aux))
             aux_models[col_name] = None
             continue
 
         m = RidgeCV(alphas=ALPHAS)
         oof = np.zeros(len(y_aux))
+        # Foldwise model for intermediate prediction
         for tr_idx, val_idx in splits:
             m.fit(X_spec[tr_idx], y_aux[tr_idx])
             oof[val_idx] = m.predict(X_spec[val_idx])
-        predicted_aux_oof[:, col_idx] = oof
+        predicted_aux_oof[:, idx] = oof
 
         m.fit(X_spec, y_aux)   # 全量重新拟合，存入 aux_models 供推理用
         aux_models[col_name] = m
+        idx += 1
+
+        # Diagnostic
+        rmse = np.sqrt(np.mean((oof - y_aux) ** 2))
+        print(f"Aux variable {col_name}")
+        print(f"  RMSE: {rmse: .4f}")
+        print(f"  Percentage error: {rmse / np.mean(y_aux) * 100: .2f}%")
 
     # ── Stage 2: [光谱特征 + 预测辅助指标] → 发热量 ──────────────────────
     
@@ -227,11 +239,15 @@ def predict_coal(coal_type, test_data, model_dict, als_param=(1e6, 0.005)):
         scaler_spec=scaler_spec, pca=pca, scaler_hand=scaler_hand,
         fit=False, als_param=als_param)
 
-    pred_aux = np.zeros((len(test_data['spectra']), len(AUX_COLS)), dtype=np.float32)
+    pred_aux = np.zeros((len(test_data['spectra']), len(AUX_COLS)-1), dtype=np.float32)
+    idx = 0
     for col_idx, col_name in enumerate(AUX_COLS):
+        if col_idx in [3]:
+            continue
         m = aux_models.get(col_name)
         if m is not None:
-            pred_aux[:, col_idx] = m.predict(X_spec)
+            pred_aux[:, idx] = m.predict(X_spec)
+        idx += 1
 
     X_s2       = scaler_s2.transform(np.nan_to_num(combine_features(X_spec, pred_aux)))
     preds      = final_model.predict(X_s2)
