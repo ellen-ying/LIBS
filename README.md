@@ -108,7 +108,7 @@ SMALL_BATCH_THRESHOLD = 10
 - [ ] 多版本集成（Ensemble V6 + V7 预测）
 
 - [x] Improve the representation of the batch (highest priority).
-- [ ] Improve the spectral representation before PCA (second priority).
+- [x] Improve the spectral representation before PCA (second priority).
 - [ ] Refine physically meaningful features (third priority).
 - [ ] Only then consider changes to the regression model.
 
