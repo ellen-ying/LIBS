@@ -16,8 +16,8 @@ Stage 2 — 光谱特征 + Stage1预测辅助指标 → 发热量
 
 import numpy as np
 from sklearn.linear_model import RidgeCV
-from sklearn.preprocessing import StandardScaler, SplineTransformer
-from sklearn.model_selection import LeaveOneGroupOut, GroupKFold, GridSearchCV
+from sklearn.preprocessing import StandardScaler
+from sklearn.model_selection import LeaveOneGroupOut, GroupKFold
 from sklearn.pipeline import Pipeline
 
 from config import ALPHAS, AUX_COLS, SMALL_BATCH_THRESHOLD
@@ -128,18 +128,13 @@ def train_coal_model(coal_type, train_data, als_param=(1e6, 0.005), param_search
 
     # ── Stage 1: 光谱 → 辅助指标 (OOF) ────────────────────────────────────
     aux_models        = {}
-    predicted_aux_oof = np.zeros((aux.shape[0],3), dtype=np.float32)
-    idx = 0
+    predicted_aux_oof = np.zeros_like(aux, dtype=np.float32)
     for col_idx, col_name in enumerate(AUX_COLS):
-        # Skip Sulfur due to prediction inaccuracy and 
-        # relative unimportance in calorific value prediction
-        if col_idx in [3]:
-            continue
         y_aux = aux[:, col_idx]
 
         # 辅助指标有缺失时退化为用均值填充
         if np.isnan(y_aux).any():
-            predicted_aux_oof[:, idx] = float(np.nanmean(y_aux))
+            predicted_aux_oof[:, col_idx] = float(np.nanmean(y_aux))
             aux_models[col_name] = None
             continue
 
@@ -149,11 +144,10 @@ def train_coal_model(coal_type, train_data, als_param=(1e6, 0.005), param_search
         for tr_idx, val_idx in splits:
             m.fit(X_spec[tr_idx], y_aux[tr_idx])
             oof[val_idx] = m.predict(X_spec[val_idx])
-        predicted_aux_oof[:, idx] = oof
+        predicted_aux_oof[:, col_idx] = oof
 
         m.fit(X_spec, y_aux)   # 全量重新拟合，存入 aux_models 供推理用
         aux_models[col_name] = m
-        idx += 1
 
         # Diagnostic
         rmse = np.sqrt(np.mean((oof - y_aux) ** 2))
