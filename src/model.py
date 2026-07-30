@@ -234,14 +234,10 @@ def predict_coal(coal_type, test_data, model_dict, als_param=(1e6, 0.005)):
         fit=False, als_param=als_param)
 
     pred_aux = np.zeros((len(test_data['spectra']), len(AUX_COLS)-1), dtype=np.float32)
-    idx = 0
     for col_idx, col_name in enumerate(AUX_COLS):
-        if col_idx in [3]:
-            continue
         m = aux_models.get(col_name)
         if m is not None:
-            pred_aux[:, idx] = m.predict(X_spec)
-        idx += 1
+            pred_aux[:, col_idx] = m.predict(X_spec)
 
     X_s2       = scaler_s2.transform(np.nan_to_num(combine_features(X_spec, pred_aux)))
     preds      = final_model.predict(X_s2)
