@@ -131,6 +131,8 @@ SMALL_BATCH_THRESHOLD = 10
      - The global parameter search inspires a modification for the Step 1 Ridge regression: About 20 points drop in CV-RMSE, but the test RMSE does not drop significantly. This indicates a potential information leakage problem and the model is therfore discarded.
 - Jul. 25th
      - Dropped Sulfur from Stage 1 prediction due to its consistent high error rate across col types: CV-RMSE dropped while test error is high
+- Aug. 5th
+     - Pooling across coal types (shared global PCA + hierarchical ridge with shared/interaction blocks) — tested, worse than independent per-type models on 19/20 aux-variable*type combinations. Root cause: coal types span non-overlapping Q ranges (2752-6143), indicating genuinely different populations rather than one population with type-level perturbations. Do not revisit pooling in this form.
 
 ---
 
